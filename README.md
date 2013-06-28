@@ -20,10 +20,10 @@ Usage
 
     Usage of ./beanstalkd_benchmark:
 
-    -c=1: number of concurrent workers, default to 1
     -h="localhost:11300": Host to beanstalkd, default to localhost:11300
+    -c=1: number of concurrent workers, default to 1
     -n=10000: Counts of push operation in each worker, default to 10000
-    -s=256: Size of data
+    -s=256: Size of data, default to 256. in byte
 
 Notes
 -----
