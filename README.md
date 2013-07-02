@@ -3,11 +3,18 @@ beanstalkd-benchmark
 
 A beanstalkd benchmarking tool in Golang
 
-Installation
-------------
+Notes
+--------
 
-    # git clone https://github.com/fangli/beanstalkd-benchmark
-    # cd beanstalkd-benchmark
+There are compiled bin files for Linux(64bit) and OSX(64bit) in folder `bin`.
+
+Feel free to use them if you don't have a Golang environment.
+
+Installation
+---------------
+
+    # go get github.com/fangli/beanstalkd-benchmark
+    # cd $GOPATH/src/github.com/fangli/beanstalkd-benchmark
     # go run beanstalkd_benchmark.go -c=10000 -n=100 -s=512
 
 If you get import error about "github.com/kr/beanstalk", run the following command first:
@@ -16,7 +23,7 @@ If you get import error about "github.com/kr/beanstalk", run the following comma
 
 
 Usage
------
+---------
 
     Usage of ./beanstalkd_benchmark:
 
@@ -24,10 +31,3 @@ Usage
     -c=1: number of concurrent workers, default to 1
     -n=10000: Counts of push operation in each worker, default to 10000
     -s=256: Size of data, default to 256. in byte
-
-Notes
------
-
-There are compiled bin files for Linux(64bit) and OSX(64bit) in folder `bin`.
-
-Feel free to use them if you don't have a Golang environment.
