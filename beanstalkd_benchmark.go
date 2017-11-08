@@ -22,12 +22,12 @@ import (
 )
 
 // Get Parameters from cli
-var workers = flag.Int("c", 1, "number of concurrent workers, default to 1")
-var count = flag.Int("n", 10000, "Counts of push operation in each worker, default to 10000")
+var publishers = flag.Int("c", 1, "number of concurrent publishers, default to 1")
+var count = flag.Int("n", 10000, "Counts of push operation in each publisher, default to 10000")
 var host = flag.String("h", "localhost:11300", "Host to beanstalkd, default to localhost:11300")
 var size = flag.Int("s", 256, "Size of data, default to 256. in byte")
 
-func testWorker(h string, count int, size int, ch chan int) {
+func testPublisher(h string, count int, size int, ch chan int) {
 	conn, e := beanstalk.Dial("tcp", h)
 	defer conn.Close()
 	data := make([]byte, size)
@@ -45,25 +45,25 @@ func testWorker(h string, count int, size int, ch chan int) {
 
 func main() {
 	flag.Parse()
-	log.Println("Starting worker: ", *workers)
-	log.Println("Count of each worker: ", *count)
+	log.Println("Starting publisher: ", *publishers)
+	log.Println("Count of each publisher: ", *count)
 	log.Println("Target host: ", *host)
 	log.Println("Benchmarking, be patient ...")
 	ch := make(chan int)
 	t0 := time.Now()
 
 	// Fork goroutine
-	for i := 0; i < *workers; i++ {
-		go testWorker(*host, *count, *size, ch)
+	for i := 0; i < *publishers; i++ {
+		go testPublisher(*host, *count, *size, ch)
 	}
 
 	// Wait for return
-	for i := 0; i < *workers; i++ {
+	for i := 0; i < *publishers; i++ {
 		<-ch
 	}
 
 	delta := time.Now().Sub(t0)
 	log.Println("---------------")
 	log.Println("Elapsed Time: ", delta)
-	log.Println("Result: ", float64(*workers)*float64(*count)/delta.Seconds(), " req/s")
+	log.Println("Result: ", float64(*publishers)*float64(*count)/delta.Seconds(), " req/s")
 }
