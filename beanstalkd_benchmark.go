@@ -110,30 +110,38 @@ func main() {
 	chReader := make(chan int)
 	t0 := time.Now()
 
-	publishCount := *count / *publishers
-	for i := 0; i < *publishers; i++ {
-		go testPublisher(*host, publishCount, *size, chPublisher)
+	if (*publishers) > 0 {
+		publishCount := *count / *publishers
+		for i := 0; i < *publishers; i++ {
+			go testPublisher(*host, publishCount, *size, chPublisher)
+		}
 	}
 
-	readCount := *count / *readers
-	for i := 0; i < *readers; i++ {
-		go testReader(*host, readCount, chReader)
+	if (*readers) > 0 {
+		readCount := *count / *readers
+		for i := 0; i < *readers; i++ {
+			go testReader(*host, readCount, chReader)
+		}
 	}
 
 	// Wait for return, assume publishers will finish first
-	for i := 0; i < *publishers; i++ {
-		<-chPublisher
+	if (*publishers) > 0 {
+		for i := 0; i < *publishers; i++ {
+			<-chPublisher
+		}
+
+		log.Println("---------------")
+		delta := time.Now().Sub(t0)
+		log.Println("Publishers finished at: ", delta)
+		log.Println("Publish rate: ", float64(*count)/delta.Seconds(), " req/s")
 	}
 
-	log.Println("---------------")
-	delta := time.Now().Sub(t0)
-	log.Println("Publishers finished at: ", delta)
-	log.Println("Publish rate: ", float64(*count)/delta.Seconds(), " req/s")
-
-	for i := 0; i < *readers; i++ {
-		<-chReader
+	if (*readers) > 0 {
+		for i := 0; i < *readers; i++ {
+			<-chReader
+		}
+		delta := time.Now().Sub(t0)
+		log.Println("Readers finished at: ", delta)
+		log.Println("Read rate: ", float64(*count)/delta.Seconds(), " req/s")
 	}
-	delta = time.Now().Sub(t0)
-	log.Println("Readers finished at: ", delta)
-	log.Println("Read rate: ", float64(*count)/delta.Seconds(), " req/s")
 }
