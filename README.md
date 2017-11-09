@@ -21,13 +21,16 @@ If you get import error about "github.com/kr/beanstalk", run the following comma
 
     # go get github.com/kr/beanstalk
 
-
 Usage
 ---------
 
     Usage of ./beanstalkd_benchmark:
 
-    -h="localhost:11300": Host to beanstalkd, default to localhost:11300
-    -c=1: number of concurrent workers, default to 1
-    -n=10000: Counts of push operation in each worker, default to 10000
-    -s=256: Size of data, default to 256. in byte
+    -h="localhost:11300": Host of beanstalkd, defaults to localhost:11300
+    -p=1: Number of concurrent publishers, defaults to 1
+    -r=<p>: Number of concurrent readers, defaults to number of publishers
+    -n=10000: Counts of jobs to be processed (put, reserved and deleted), defaults to 10000
+    -s=256: Size of data, in bytes, defaults to 256
+    -d=false: Drain the beanstalk (delete all jobs) before starting the test
+    -f=0: Add <f> jobs to the beanstalk (after draining, if specified)
+          before starting the test
