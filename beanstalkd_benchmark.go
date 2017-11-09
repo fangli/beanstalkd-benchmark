@@ -27,7 +27,8 @@ var readers = flag.Int("r", *publishers, "number of concurrent readers, default 
 var count = flag.Int("n", 10000, "Count of jobs to be processed, default to 10000")
 var host = flag.String("h", "localhost:11300", "Host to beanstalkd, default to localhost:11300")
 var size = flag.Int("s", 256, "Size of data, default to 256. in byte")
-var drain = flag.Bool("d", false, "Drain the beanstalk before stating test")
+var drain = flag.Bool("d", false, "Drain the beanstalk before starting test")
+var fill = flag.Int("f", 0, "Place <f> jobs on the beanstalk before starting test")
 
 func testPublisher(h string, count int, size int, ch chan int) {
 	conn, e := beanstalk.Dial("tcp", h)
@@ -84,10 +85,20 @@ func drainBeanstalk(h string) {
 	}
 }
 
+func fillBeanstalk(h string, count int, size int) {
+	log.Println("Filling beanstalk")
+	ch := make(chan int)
+	go testPublisher(h, count, size, ch)
+	<-ch
+}
+
 func main() {
 	flag.Parse()
 	if *drain {
 		drainBeanstalk(*host)
+	}
+	if (*fill) > 0 {
+		fillBeanstalk(*host, *fill, *size)
 	}
 
 	log.Println("Target host: ", *host)
