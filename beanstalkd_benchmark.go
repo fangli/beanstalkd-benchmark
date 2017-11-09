@@ -22,8 +22,9 @@ import (
 )
 
 // Get Parameters from cli
-var publishers = flag.Int("c", 1, "number of concurrent publishers, default to 1")
-var count = flag.Int("n", 10000, "Counts of push operation in each publisher, default to 10000")
+var publishers = flag.Int("p", 1, "number of concurrent publishers, default to 1")
+var readers = flag.Int("r", *publishers, "number of concurrent readers, default to number of publishers")
+var count = flag.Int("n", 10000, "Count of jobs to be processed, default to 10000")
 var host = flag.String("h", "localhost:11300", "Host to beanstalkd, default to localhost:11300")
 var size = flag.Int("s", 256, "Size of data, default to 256. in byte")
 
@@ -43,27 +44,61 @@ func testPublisher(h string, count int, size int, ch chan int) {
 	ch <- 1
 }
 
+func testReader(h string, count int, ch chan int) {
+	conn, e := beanstalk.Dial("tcp", h)
+	defer conn.Close()
+	if e != nil {
+		log.Fatal(e)
+	}
+	for i := 0; i < count; i++ {
+		id, _, e := conn.Reserve(250 * time.Millisecond)
+		if e != nil {
+			log.Println(e)
+			continue
+		}
+		e = conn.Delete(id)
+		if e != nil {
+			log.Println(e)
+		}
+	}
+	ch <- 1
+}
+
 func main() {
 	flag.Parse()
 	log.Println("Starting publisher: ", *publishers)
 	log.Println("Count of each publisher: ", *count)
 	log.Println("Target host: ", *host)
+	log.Println("Total jobs to be processed: ", *count)
 	log.Println("Benchmarking, be patient ...")
-	ch := make(chan int)
+	chPublisher := make(chan int)
+	chReader := make(chan int)
 	t0 := time.Now()
 
-	// Fork goroutine
+	publishCount := *count / *publishers
 	for i := 0; i < *publishers; i++ {
-		go testPublisher(*host, *count, *size, ch)
+		go testPublisher(*host, publishCount, *size, chPublisher)
 	}
 
-	// Wait for return
-	for i := 0; i < *publishers; i++ {
-		<-ch
+	readCount := *count / *readers
+	for i := 0; i < *readers; i++ {
+		go testReader(*host, readCount, chReader)
 	}
 
-	delta := time.Now().Sub(t0)
+	// Wait for return, assume publishers will finish first
+	for i := 0; i < *publishers; i++ {
+		<-chPublisher
+	}
+
 	log.Println("---------------")
-	log.Println("Elapsed Time: ", delta)
-	log.Println("Result: ", float64(*publishers)*float64(*count)/delta.Seconds(), " req/s")
+	delta := time.Now().Sub(t0)
+	log.Println("Publishers finished at: ", delta)
+	log.Println("Publish rate: ", float64(*count)/delta.Seconds(), " req/s")
+
+	for i := 0; i < *readers; i++ {
+		<-chReader
+	}
+	delta = time.Now().Sub(t0)
+	log.Println("Readers finished at: ", delta)
+	log.Println("Read rate: ", float64(*count)/delta.Seconds(), " req/s")
 }
