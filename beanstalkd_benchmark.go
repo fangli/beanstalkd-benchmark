@@ -22,45 +22,65 @@ import (
 )
 
 // Get Parameters from cli
-var publishers = flag.Int("p", 1, "number of concurrent publishers, default to 1")
-var readers = flag.Int("r", *publishers, "number of concurrent readers, default to number of publishers")
-var count = flag.Int("n", 10000, "Count of jobs to be processed, default to 10000")
-var host = flag.String("h", "localhost:11300", "Host to beanstalkd, default to localhost:11300")
-var size = flag.Int("s", 256, "Size of data, default to 256. in byte")
-var drain = flag.Bool("d", false, "Drain the beanstalk before starting test")
-var fill = flag.Int("f", 0, "Place <f> jobs on the beanstalk before starting test")
+var (
+	publishers = flag.Int("p", 1, "number of concurrent publishers, default to 1")
+	readers    = flag.Int("r", *publishers, "number of concurrent readers, default to number of publishers")
+	count      = flag.Int("n", 10000, "Count of jobs to be processed, default to 10000")
+	host       = flag.String("h", "localhost:11300", "Host to beanstalkd, default to localhost:11300")
+	size       = flag.Int("s", 256, "Size of data, default to 256. in byte")
+	drain      = flag.Bool("d", false, "Drain the beanstalk before starting test")
+	fill       = flag.Int("f", 0, "Place <f> jobs on the beanstalk before starting test")
+)
 
-func testPublisher(h string, count int, size int, ch chan int) {
-	conn, e := beanstalk.Dial("tcp", h)
-	defer conn.Close()
-	data := make([]byte, size)
-	if e != nil {
-		log.Fatal(e)
+const (
+	Delay          = 0 * time.Second
+	TTR            = 10 * time.Second
+	ReserveTimeout = 50 * time.Second
+)
+
+func testPublisher(h string, count, size int, ch chan int) {
+	conn, err := beanstalk.Dial("tcp", h)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("conn.close err=%v", err)
+		}
+	}()
+
+	data := make([]byte, size)
 	for i := 0; i < count; i++ {
-		_, err := conn.Put(data, 0, 0, 120*time.Second)
-		if err != nil {
+		if _, err := conn.Put(data, 0, Delay, TTR); err != nil {
 			log.Fatal(err)
 		}
 	}
+
 	ch <- 1
 }
 
 func testReader(h string, count int, ch chan int) {
-	conn, e := beanstalk.Dial("tcp", h)
-	defer conn.Close()
-	if e != nil {
-		log.Fatal(e)
+	conn, err := beanstalk.Dial("tcp", h)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("conn.close err=%v", err)
+		}
+	}()
+
 	for i := 0; i < count; i++ {
-		id, _, e := conn.Reserve(250 * time.Millisecond)
-		if e != nil {
-			log.Println(e)
+		id, _, err := conn.Reserve(ReserveTimeout)
+		if err != nil {
+			log.Println(err)
 			continue
 		}
-		e = conn.Delete(id)
-		if e != nil {
-			log.Println(e)
+
+		if err := conn.Delete(id); err != nil {
+			log.Println(err)
 		}
 	}
 	ch <- 1
@@ -74,13 +94,13 @@ func drainBeanstalk(h string) {
 		log.Fatal(e)
 	}
 	for {
-		id, _, e := conn.Reserve(250 * time.Millisecond)
-		if e != nil {
+		id, _, err := conn.Reserve(ReserveTimeout)
+		if err != nil {
 			return
 		}
-		e = conn.Delete(id)
-		if e != nil {
-			log.Println(e)
+
+		if err = conn.Delete(id); err != nil {
+			log.Println(err)
 		}
 	}
 }
@@ -105,6 +125,7 @@ func main() {
 	log.Println("Starting publishers: ", *publishers)
 	log.Println("Starting readers: ", *readers)
 	log.Println("Total jobs to be processed: ", *count)
+	log.Printf("Delay: %v, ttr: %v, ReserveTimeout: %v", Delay, TTR, ReserveTimeout)
 	log.Println("Benchmarking, be patient ...")
 	chPublisher := make(chan int)
 	chReader := make(chan int)
